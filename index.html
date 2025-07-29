@@ -69,7 +69,7 @@
         </div>
 
         <!-- 問題容器 (預設隱藏) -->
-        <div id="questionnaire-container" class="min-h-[200px] hidden">
+        <div id="questionnaire-container" class="min-h-[250px] hidden">
             <!-- 問題將由 JavaScript 動態生成於此 -->
         </div>
 
@@ -79,7 +79,10 @@
             
             <div class="mb-8">
                 <h3 class="text-xl font-semibold text-center text-gray-700 mb-4">恩賜分數總覽</h3>
-                <canvas id="resultsChart"></canvas>
+                <!-- ** FIX: Wrapped canvas in a div with relative position and fixed height to prevent infinite scaling ** -->
+                <div class="relative h-[600px]">
+                    <canvas id="resultsChart"></canvas>
+                </div>
             </div>
 
             <div id="results-list" class="space-y-6"></div>
@@ -154,15 +157,12 @@
                 questionBlock.className = 'bg-white p-5 rounded-lg shadow-md border-l-4 border-blue-500 question-enter';
                 
                 const questionText = document.createElement('p');
-                // *** MODIFICATION HERE ***
-                // Added text-center and changed text-lg to text-xl
                 questionText.className = 'font-semibold text-gray-700 mb-4 text-xl text-center';
                 questionText.textContent = q_item.text;
                 
                 const optionsContainer = document.createElement('div');
-                // *** MODIFICATION HERE ***
-                // Added justify-center to center the radio buttons
-                optionsContainer.className = 'flex flex-wrap gap-x-6 gap-y-3 justify-center';
+                // ** FIX: Increased gap and centered options **
+                optionsContainer.className = 'flex flex-wrap gap-x-8 gap-y-4 justify-center mt-6';
 
                 const options = [
                     { label: '許多', value: 3 }, { label: '有些', value: 2 },
@@ -179,13 +179,15 @@
                     radioInput.name = `question_${q_item.originalIndex}`;
                     radioInput.value = opt.value;
                     radioInput.dataset.originalIndex = q_item.originalIndex;
-                    radioInput.className = 'custom-radio h-5 w-5 rounded-full border-2 border-gray-300 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 cursor-pointer';
+                    // ** FIX: Enlarged radio button **
+                    radioInput.className = 'custom-radio h-6 w-6 rounded-full border-2 border-gray-300 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 cursor-pointer';
                     radioInput.addEventListener('change', handleAnswer);
 
                     const label = document.createElement('label');
                     label.htmlFor = `q${q_item.originalIndex}_${opt.value}`;
                     label.textContent = opt.label;
-                    label.className = 'ml-2 text-gray-600 cursor-pointer';
+                    // ** FIX: Enlarged label font and increased margin **
+                    label.className = 'ml-3 text-xl text-gray-700 cursor-pointer';
 
                     optionWrapper.appendChild(radioInput);
                     optionWrapper.appendChild(label);
