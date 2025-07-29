@@ -174,7 +174,8 @@
                 questionText.textContent = q_item.text;
                 
                 const optionsContainer = document.createElement('div');
-                optionsContainer.className = 'flex flex-wrap gap-x-8 gap-y-4 justify-center mt-6';
+                // *** MODIFICATION FOR MOBILE LAYOUT ***
+                optionsContainer.className = 'grid grid-cols-2 gap-x-4 gap-y-6 mt-8 max-w-md mx-auto';
 
                 const options = [
                     { label: '許多', value: 3 }, { label: '有些', value: 2 },
@@ -183,7 +184,8 @@
 
                 options.forEach(opt => {
                     const optionWrapper = document.createElement('div');
-                    optionWrapper.className = 'flex items-center';
+                    // *** MODIFICATION FOR MOBILE LAYOUT ***
+                    optionWrapper.className = 'flex items-center justify-center';
                     
                     const radioInput = document.createElement('input');
                     radioInput.type = 'radio';
@@ -439,7 +441,11 @@
                     resultsChart.destroy();
                 }
                 resultsContainer.classList.add('hidden');
-                initializeQuiz();
+                // Go back to welcome screen
+                welcomeContainer.classList.remove('hidden');
+                header.classList.add('hidden');
+                progressContainer.classList.add('hidden');
+                questionnaireContainer.classList.add('hidden');
             });
 
             downloadBtn.addEventListener('click', () => {
