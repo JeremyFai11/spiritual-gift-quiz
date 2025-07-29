@@ -6,6 +6,7 @@
     <title>屬靈恩賜評估問卷</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -74,21 +75,28 @@
         </div>
 
         <!-- 結果容器 (預設隱藏) -->
-        <div id="results-container" class="hidden mt-8 bg-white p-6 rounded-xl shadow-lg">
-            <h2 class="text-2xl md:text-3xl font-bold text-center mb-4 text-gray-800">您的評估結果</h2>
-            
-            <div class="mb-8">
-                <h3 class="text-xl font-semibold text-center text-gray-700 mb-4">恩賜分數總覽</h3>
-                <!-- ** FIX: Wrapped canvas in a div with relative position and fixed height to prevent infinite scaling ** -->
-                <div class="relative h-[600px]">
-                    <canvas id="resultsChart"></canvas>
+        <div id="results-container" class="hidden mt-8">
+            <div id="results-content" class="bg-white p-6 rounded-xl shadow-lg">
+                <h2 class="text-2xl md:text-3xl font-bold text-center mb-4 text-gray-800">您的評估結果</h2>
+                
+                <div class="mb-8">
+                    <h3 class="text-xl font-semibold text-center text-gray-700 mb-4">恩賜分數總覽</h3>
+                    <div class="relative h-[600px]">
+                        <canvas id="resultsChart"></canvas>
+                    </div>
                 </div>
-            </div>
 
-            <div id="results-list" class="space-y-6"></div>
+                <div id="results-list" class="space-y-6"></div>
+            </div>
             
-            <div class="mt-8 text-center">
-                <button id="restart-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition duration-300">
+            <div class="mt-8 flex flex-wrap justify-center gap-4">
+                <button id="download-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300">
+                    下載結果圖片
+                </button>
+                <button id="email-btn" class="bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300">
+                    電郵傳送結果
+                </button>
+                <button id="restart-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300">
                     重新評估
                 </button>
             </div>
@@ -97,7 +105,7 @@
         <!-- 頁尾 -->
         <footer class="text-center mt-12 text-sm text-gray-500 space-y-2">
             <p>本評估僅為參考工具，恩賜的確認最終需要在教會群體中完成。</p>
-            <p>版權來源：「李察侯氏、彼得韋拿著，《教會增長系列⑤你的屬靈恩賜測試表》（香港：迎欣，2004）」</p>
+            <p>版權來源：「李察侯氏、彼得韋拿著，王一平譯，《教會增長系列⑤你的屬靈恩賜測試表》（香港：迎欣，2004）」</p>
         </footer>
 
     </div>
@@ -118,6 +126,7 @@
                 "自願清貧", "獨身", "代禱", "趕鬼", "執事"
             ];
             
+            const storageKey = 'spiritualGiftsQuizState';
             let shuffledQuestions = [];
             let scores = [];
             let currentQuestionIndex = 0;
@@ -128,8 +137,11 @@
             const header = document.getElementById('header');
             const questionnaireContainer = document.getElementById('questionnaire-container');
             const resultsContainer = document.getElementById('results-container');
+            const resultsContent = document.getElementById('results-content');
             const resultsList = document.getElementById('results-list');
             const restartBtn = document.getElementById('restart-btn');
+            const downloadBtn = document.getElementById('download-btn');
+            const emailBtn = document.getElementById('email-btn');
             const progressContainer = document.getElementById('progress-container');
             const progressBar = document.getElementById('progress-bar');
             const progressText = document.getElementById('progress-text');
@@ -146,6 +158,7 @@
 
             function renderCurrentQuestion() {
                 if (currentQuestionIndex >= shuffledQuestions.length) {
+                    saveState(true); // Mark as completed
                     displayResults();
                     return;
                 }
@@ -161,7 +174,6 @@
                 questionText.textContent = q_item.text;
                 
                 const optionsContainer = document.createElement('div');
-                // ** FIX: Increased gap and centered options **
                 optionsContainer.className = 'flex flex-wrap gap-x-8 gap-y-4 justify-center mt-6';
 
                 const options = [
@@ -179,14 +191,12 @@
                     radioInput.name = `question_${q_item.originalIndex}`;
                     radioInput.value = opt.value;
                     radioInput.dataset.originalIndex = q_item.originalIndex;
-                    // ** FIX: Enlarged radio button **
                     radioInput.className = 'custom-radio h-6 w-6 rounded-full border-2 border-gray-300 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 cursor-pointer';
                     radioInput.addEventListener('change', handleAnswer);
 
                     const label = document.createElement('label');
                     label.htmlFor = `q${q_item.originalIndex}_${opt.value}`;
                     label.textContent = opt.label;
-                    // ** FIX: Enlarged label font and increased margin **
                     label.className = 'ml-3 text-xl text-gray-700 cursor-pointer';
 
                     optionWrapper.appendChild(radioInput);
@@ -205,6 +215,7 @@
                 const categoryIndex = originalIndex % gifts.length;
                 scores[categoryIndex] += score;
 
+                saveState(false); // Not completed yet
                 updateProgress();
 
                 const questionBlock = questionnaireContainer.querySelector('.question-enter');
@@ -338,17 +349,7 @@
                                 'rgba(255, 99, 132, 0.6)', 'rgba(75, 192, 192, 0.6)', 'rgba(255, 206, 86, 0.6)',
                                 'rgba(153, 102, 255, 0.6)'
                             ],
-                            borderColor: [
-                                'rgba(54, 162, 235, 1)', 'rgba(255, 99, 132, 1)', 'rgba(75, 192, 192, 1)',
-                                'rgba(255, 206, 86, 1)', 'rgba(153, 102, 255, 1)', 'rgba(255, 159, 64, 1)',
-                                'rgba(199, 199, 199, 1)', 'rgba(83, 102, 255, 1)', 'rgba(40, 159, 64, 1)',
-                                'rgba(210, 99, 132, 1)', 'rgba(54, 162, 135, 1)', 'rgba(25, 206, 86, 1)',
-                                'rgba(153, 102, 155, 1)', 'rgba(255, 159, 164, 1)', 'rgba(54, 62, 235, 1)',
-                                'rgba(255, 99, 32, 1)', 'rgba(75, 192, 92, 1)', 'rgba(255, 206, 186, 1)',
-                                'rgba(153, 2, 255, 1)', 'rgba(255, 59, 64, 1)', 'rgba(54, 162, 235, 1)',
-                                'rgba(255, 99, 132, 1)', 'rgba(75, 192, 192, 1)', 'rgba(255, 206, 86, 1)',
-                                'rgba(153, 102, 255, 1)'
-                            ],
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
                             borderWidth: 1
                         }]
                     },
@@ -366,37 +367,112 @@
                 });
             }
 
-            function startNewAssessment() {
-                // Hide results and welcome, show quiz
-                resultsContainer.classList.add('hidden');
-                welcomeContainer.classList.remove('hidden');
-                header.classList.add('hidden');
-                progressContainer.classList.add('hidden');
-                questionnaireContainer.classList.add('hidden');
-                
-                if (resultsChart) {
-                    resultsChart.destroy();
-                }
+            function saveState(isCompleted) {
+                const state = {
+                    scores: scores,
+                    currentQuestionIndex: currentQuestionIndex,
+                    shuffledQuestions: shuffledQuestions,
+                    completed: isCompleted
+                };
+                localStorage.setItem(storageKey, JSON.stringify(state));
             }
-            
-            function initializeQuiz() {
+
+            function loadState() {
+                const savedState = localStorage.getItem(storageKey);
+                if (savedState) {
+                    return JSON.parse(savedState);
+                }
+                return null;
+            }
+
+            function clearState() {
+                localStorage.removeItem(storageKey);
+            }
+
+            function initializeQuiz(resumeState = null) {
                 welcomeContainer.classList.add('hidden');
                 header.classList.remove('hidden');
                 progressContainer.classList.remove('hidden');
                 questionnaireContainer.classList.remove('hidden');
 
-                scores = Array(gifts.length).fill(0);
-                currentQuestionIndex = 0;
+                if (resumeState) {
+                    scores = resumeState.scores;
+                    currentQuestionIndex = resumeState.currentQuestionIndex;
+                    shuffledQuestions = resumeState.shuffledQuestions;
+                } else {
+                    scores = Array(gifts.length).fill(0);
+                    currentQuestionIndex = 0;
+                    prepareAndShuffleQuestions();
+                }
                 
-                prepareAndShuffleQuestions();
                 renderCurrentQuestion();
                 updateProgress();
-                questionCounter.textContent = `問題 1 / ${questions.length}`;
+                questionCounter.textContent = `問題 ${currentQuestionIndex + 1} / ${questions.length}`;
                 window.scrollTo(0, 0);
             }
 
-            startBtn.addEventListener('click', initializeQuiz);
-            restartBtn.addEventListener('click', initializeQuiz);
+            function initializePage() {
+                const savedState = loadState();
+                if (savedState && savedState.completed) {
+                    // If completed, show results directly
+                    scores = savedState.scores;
+                    welcomeContainer.classList.add('hidden');
+                    displayResults();
+                } else if (savedState && !savedState.completed) {
+                    // If in progress, resume quiz
+                    initializeQuiz(savedState);
+                } else {
+                    // Otherwise, show welcome screen
+                    welcomeContainer.classList.remove('hidden');
+                    header.classList.add('hidden');
+                    progressContainer.classList.add('hidden');
+                    questionnaireContainer.classList.add('hidden');
+                    resultsContainer.classList.add('hidden');
+                }
+            }
+            
+            startBtn.addEventListener('click', () => initializeQuiz());
+            
+            restartBtn.addEventListener('click', () => {
+                clearState();
+                if (resultsChart) {
+                    resultsChart.destroy();
+                }
+                resultsContainer.classList.add('hidden');
+                initializeQuiz();
+            });
+
+            downloadBtn.addEventListener('click', () => {
+                html2canvas(resultsContent).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = 'spiritual-gifts-results.png';
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                });
+            });
+
+            emailBtn.addEventListener('click', () => {
+                const resultsData = gifts.map((gift, index) => ({
+                    gift: gift,
+                    score: scores[index]
+                })).sort((a, b) => b.score - a.score);
+
+                let emailBody = "我的屬靈恩賜評估結果：\n\n";
+                emailBody += "主要恩賜 (首3項):\n";
+                resultsData.slice(0, 3).forEach((r, i) => {
+                    emailBody += `${i + 1}. ${r.gift} (分數: ${r.score})\n`;
+                });
+
+                emailBody += "\n次要恩賜 (第4-6項):\n";
+                resultsData.slice(3, 6).forEach((r, i) => {
+                    emailBody += `${i + 4}. ${r.gift} (分數: ${r.score})\n`;
+                });
+
+                const subject = "我的屬靈恩賜評估結果";
+                window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(emailBody)}`;
+            });
+
+            initializePage();
         });
     </script>
 </body>
