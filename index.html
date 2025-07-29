@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>線上互動屬靈恩賜評估問卷</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -24,43 +25,65 @@
         .progress-bar-fill {
             transition: width 0.5s ease-in-out;
         }
+        /* 問題切換動畫 */
+        .question-enter {
+            animation: fadeIn 0.4s ease-out;
+        }
+        .question-exit {
+            animation: fadeOut 0.3s ease-in forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-20px); }
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
 
     <div id="app" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-4xl">
         
-        <!-- 問卷標題 -->
-        <header id="header" class="text-center mb-8">
+        <!-- 歡迎頁面 (預設顯示) -->
+        <div id="welcome-container" class="text-center py-10">
             <h1 class="text-3xl md:text-4xl font-bold text-gray-800">屬靈恩賜評估問卷</h1>
-            <p class="mt-2 text-gray-600">請根據您的真實感受和經歷，誠實地回答以下問題。</p>
+            <p class="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">這份問卷將幫助您發現自己的屬靈恩賜。請根據您的真實感受和經歷，誠實地回答125條問題。</p>
+            <button id="start-btn" class="mt-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition duration-300 transform hover:scale-105">
+                開始評估
+            </button>
+        </div>
+
+        <!-- 問卷標題 (預設隱藏) -->
+        <header id="header" class="text-center mb-8 hidden">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">屬靈恩賜評估問卷</h1>
+            <p id="question-counter" class="text-lg text-gray-500 mt-4 font-medium"></p>
         </header>
 
-        <!-- 進度條 -->
-        <div id="progress-container" class="w-full bg-gray-200 rounded-full h-4 mb-6 sticky top-2 z-10 shadow-inner">
+        <!-- 進度條 (預設隱藏) -->
+        <div id="progress-container" class="w-full bg-gray-200 rounded-full h-4 mb-6 sticky top-2 z-10 shadow-inner hidden">
             <div id="progress-bar" class="bg-blue-600 h-4 rounded-full progress-bar-fill text-xs font-medium text-blue-100 text-center p-0.5 leading-none" style="width: 0%">
                 <span id="progress-text">0%</span>
             </div>
         </div>
 
-        <!-- 問題容器 -->
-        <div id="questionnaire-container" class="space-y-6">
+        <!-- 問題容器 (預設隱藏) -->
+        <div id="questionnaire-container" class="min-h-[200px] hidden">
             <!-- 問題將由 JavaScript 動態生成於此 -->
-        </div>
-
-        <!-- 操作按鈕 -->
-        <div id="actions-container" class="mt-8 text-center">
-            <button id="calculate-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition duration-300 transform hover:scale-105">
-                計算結果
-            </button>
         </div>
 
         <!-- 結果容器 (預設隱藏) -->
         <div id="results-container" class="hidden mt-8 bg-white p-6 rounded-xl shadow-lg">
-            <h2 class="text-2xl md:text-3xl font-bold text-center mb-6 text-gray-800">您的評估結果</h2>
-            <div id="results-list" class="space-y-4">
-                <!-- 結果將由 JavaScript 動態生成於此 -->
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-4 text-gray-800">您的評估結果</h2>
+            
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold text-center text-gray-700 mb-4">恩賜分數總覽</h3>
+                <canvas id="resultsChart"></canvas>
             </div>
+
+            <div id="results-list" class="space-y-6"></div>
+            
             <div class="mt-8 text-center">
                 <button id="restart-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition duration-300">
                     重新評估
@@ -78,7 +101,6 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // 問題數據
             const questions = [
                 "我一直有個願望，要傳遞直接從神來的訊息，來建立、鼓勵和安慰別人。", "我一直喜歡同一班人長期相處，與他們分享成功，分擔失敗。", "人家告訴我，說我幫了他們很有意義地學習了《聖經》真理。", "在我自己生命中，我有效地應用了屬靈真理。", "人家告訴我，說我幫了他們分析了《聖經》中很重要的事實。", "我常說話鼓勵那些動搖、受苦和失望的人。", "教會的人發覺我常常在別人還沒注意的時候，就看穿虛偽。", "我發覺我善於理財，所以能慷慨奉獻支持神的工作。", "我經常協助屬靈領袖，以致他們能專注做最重要的事工。", "我有一個願望，要幫助那些身體或思覺有障礙的，來減輕他們的痛苦。", "與別的種族或少數民族人相處，我覺得很自在；他們也好像接納我。", "我有帶領人相信耶穌，決志接受救恩。", "我家的大門，一直為有需要留宿的人打開的。", "在一群人當中，別人常是要我來決定異象和方向。", "我講話的時候，大家好像都聽從。", "在一群人當中，若果少了組織，我往往就填補這空缺。", "人家能清楚指明，我的禱告，帶出可以看到的神蹟。", "奉主耶穌的名，我被使用來即時醫治疾病。", "我講方言。", "有時候人家講方言，我能感受到神要傳達什麼。", "我可以生活得更舒適，但我選擇與貧窮的人一同生活。", "我是單身，而且很滿足。", "我每天起碼禱告一小時。", "我斥責邪靈，它們順服我。", "我喜歡教會叫我去做一些庶務。",
                 "藉著神，我向別人啟示了將來要發生的事。", "我樂意負起照料一群基督徒的屬靈生命。", "我覺得我能將《新約》對基督身體（教會）的健康和事奉，解釋得適切。", "對相當複雜的困難，我能天性地達至解決。", "我對一些屬靈真理有特別見解，別人說我幫到他們更親近神。", "有需要的時候，我能高效地動員別人參與事奉。", "有時我能“看見”聖靈降臨在某些人身上。", "按照記錄，我奉獻大大超過十分之一來支持聖工。", "別人告訴我，說我幫助了他們的事奉，更為高效。", "別人有物質或身體上的缺乏，我肯去照料。", "我覺得我能學會另一種語言，以致能在不同的文化當中服事。", "我曾喜樂洋洋地向非信徒，適切清楚分享神怎樣拯救我。", "我喜歡負責教會聚餐及其他社交。", "我相信神能行不可能之事，並且實實際際地看過祂的作為。", "其他基督徒跟從我的領導，因為他們相信我。", "我享受整理細則，組織計劃，安排人力、物力、時間，來叫事奉更有效。", "神使用我這個人行出超然的神蹟奇事。", "我喜歡為病人禱告，因為我知道許多會得著醫治。", "我用未曾學過的語言，向神的子民傳達神對現況的訊息。", "我繙方言，結果是基督的身體得著建立、激勵和安慰。", "簡樸生活對我來說是一個很興奮的挑戰。", "人家注意到我對結婚好像沒有什麼大興趣。", "當我聽到一個代禱事項，我至少會用幾日時間為這件事禱告。", "我聽過污鬼大聲說話。", "我沒有什麼才幹，但教會的事務需要做我就做。",
@@ -87,7 +109,6 @@
                 "我有時清楚確實知道神在事奉上要做的是什麼。", "人家告訴我，說我把他們重新帶回基督大家庭。", "研讀《聖經》，把自己的見解與別人分享，是很滿足的。", "當要作重要的決定，我感受到神奇異的同在，並且得到信心。", "我能夠憑閱讀和觀察，自己發現新真理。", "我說服別人在《聖經》中找良方，來解決他們的困難和痛苦。", "我能分辨出一個人說方言，是真是假。", "我甘願過一個比較低水平的生活，以致造益神的工作。", "當我服事神的時候，我根本不理誰得稱讚。", "我樂意和一個孤寂的，好像坐牢的人，共度時間。", "比起別人，我有一個強烈的願望，要別的地方的人歸主。", "我對非信徒特別好感，希望能贏取他們信主。", "我願意幾時有需要，幾時我的家就打開，來款待神的僕人。", "人家告訴我，說我有特別的異象；這點我同意。", "由我負責時，事情就進行得順利。", "我享受在教會中擔任一個特別的責任，而且看到它成功。", "奉主的名，我叫瞎眼的重見光明。", "當我為病人禱告，一就是我自己，一就是對方，總會覺得熱和震顫。", "當我說方言，我相信是建立主的身體。", "我繙譯方言時，好像是神直接傳遞訊息給我們。", "窮人家接納我，因為我選擇過他們的生活水平。", "我沒有困難認同保羅獨身的心願。", "當我禱告時，神經常向我說話。我認識祂的聲音。", "我奉主名趕鬼。", "人家要我做的，看來是瑣事，我也樂意接受。"
             ];
 
-            // 恩賜類別
             const gifts = [
                 "預言", "牧養", "教導", "智慧", "知識", "勸化", "辨別諸靈", "施惠（奉獻）", "幫助人", "憐憫人",
                 "宣教士", "傳福音", "款待", "信心", "治理", "行政", "神蹟", "醫病", "方言", "繙方言",
@@ -95,216 +116,274 @@
             ];
             
             let shuffledQuestions = [];
+            let scores = [];
+            let currentQuestionIndex = 0;
+            let resultsChart = null;
 
+            const welcomeContainer = document.getElementById('welcome-container');
+            const startBtn = document.getElementById('start-btn');
+            const header = document.getElementById('header');
             const questionnaireContainer = document.getElementById('questionnaire-container');
-            const calculateBtn = document.getElementById('calculate-btn');
             const resultsContainer = document.getElementById('results-container');
             const resultsList = document.getElementById('results-list');
             const restartBtn = document.getElementById('restart-btn');
+            const progressContainer = document.getElementById('progress-container');
             const progressBar = document.getElementById('progress-bar');
             const progressText = document.getElementById('progress-text');
+            const questionCounter = document.getElementById('question-counter');
 
-            // 將問題與其原始索引配對，以便之後計分
             function prepareAndShuffleQuestions() {
-                let questionsWithOriginalIndex = questions.map((q, index) => ({
-                    text: q,
-                    originalIndex: index
-                }));
-
-                // Fisher-Yates (aka Knuth) Shuffle 演算法打亂問題順序
+                let questionsWithOriginalIndex = questions.map((q, index) => ({ text: q, originalIndex: index }));
                 for (let i = questionsWithOriginalIndex.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [questionsWithOriginalIndex[i], questionsWithOriginalIndex[j]] = [questionsWithOriginalIndex[j], questionsWithOriginalIndex[i]];
                 }
-                
                 shuffledQuestions = questionsWithOriginalIndex;
             }
 
-            // 渲染問題
-            function renderQuestions() {
-                questionnaireContainer.innerHTML = ''; // 清空舊問題
-                shuffledQuestions.forEach((q_item, display_index) => {
-                    const questionBlock = document.createElement('div');
-                    questionBlock.className = 'bg-white p-5 rounded-lg shadow-md border-l-4 border-gray-200 transition duration-300 hover:shadow-lg hover:border-blue-500';
-                    
-                    const questionText = document.createElement('p');
-                    questionText.className = 'font-semibold text-gray-700 mb-4';
-                    // 顯示的是打亂後的順序 (1, 2, 3...)
-                    questionText.textContent = `${display_index + 1}. ${q_item.text}`;
-                    
-                    const optionsContainer = document.createElement('div');
-                    optionsContainer.className = 'flex flex-wrap gap-x-6 gap-y-3';
-
-                    const options = [
-                        { label: '許多', value: 3 },
-                        { label: '有些', value: 2 },
-                        { label: '少少', value: 1 },
-                        { label: '沒有', value: 0 }
-                    ];
-
-                    options.forEach(opt => {
-                        const optionWrapper = document.createElement('div');
-                        optionWrapper.className = 'flex items-center';
-                        
-                        const radioInput = document.createElement('input');
-                        radioInput.type = 'radio';
-                        // ID 和 Name 使用原始索引確保唯一性
-                        radioInput.id = `q${q_item.originalIndex}_${opt.value}`;
-                        radioInput.name = `question_${q_item.originalIndex}`;
-                        radioInput.value = opt.value;
-                        radioInput.className = 'custom-radio h-5 w-5 rounded-full border-2 border-gray-300 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 cursor-pointer';
-                        radioInput.addEventListener('change', updateProgress);
-
-                        const label = document.createElement('label');
-                        label.htmlFor = `q${q_item.originalIndex}_${opt.value}`;
-                        label.textContent = opt.label;
-                        label.className = 'ml-2 text-gray-600 cursor-pointer';
-
-                        optionWrapper.appendChild(radioInput);
-                        optionWrapper.appendChild(label);
-                        optionsContainer.appendChild(optionWrapper);
-                    });
-
-                    questionBlock.appendChild(questionText);
-                    questionBlock.appendChild(optionsContainer);
-                    questionnaireContainer.appendChild(questionBlock);
-                });
-            }
-            
-            // 更新進度條
-            function updateProgress() {
-                const totalQuestions = questions.length;
-                const answeredQuestions = document.querySelectorAll('input[type="radio"]:checked').length;
-                const percentage = Math.round((answeredQuestions / totalQuestions) * 100);
-                progressBar.style.width = `${percentage}%`;
-                progressText.textContent = `${percentage}%`;
-            }
-
-            // 計算分數
-            calculateBtn.addEventListener('click', () => {
-                const totalQuestions = questions.length;
-                const answeredQuestions = document.querySelectorAll('input[type="radio"]:checked').length;
-                if (answeredQuestions < totalQuestions) {
-                    showCustomAlert('請回答所有問題才能計算結果。');
+            function renderCurrentQuestion() {
+                if (currentQuestionIndex >= shuffledQuestions.length) {
+                    displayResults();
                     return;
                 }
 
-                const scores = Array(gifts.length).fill(0);
+                questionnaireContainer.innerHTML = '';
+                const q_item = shuffledQuestions[currentQuestionIndex];
+                
+                const questionBlock = document.createElement('div');
+                questionBlock.className = 'bg-white p-5 rounded-lg shadow-md border-l-4 border-blue-500 question-enter';
+                
+                const questionText = document.createElement('p');
+                questionText.className = 'font-semibold text-gray-700 mb-4 text-lg';
+                questionText.textContent = q_item.text;
+                
+                const optionsContainer = document.createElement('div');
+                optionsContainer.className = 'flex flex-wrap gap-x-6 gap-y-3';
 
-                // 根據原始索引來計分
-                for (let i = 0; i < totalQuestions; i++) {
-                    const selectedOption = document.querySelector(`input[name="question_${i}"]:checked`);
-                    if (selectedOption) {
-                        const score = parseInt(selectedOption.value, 10);
-                        const categoryIndex = i % gifts.length;
-                        scores[categoryIndex] += score;
-                    }
+                const options = [
+                    { label: '許多', value: 3 }, { label: '有些', value: 2 },
+                    { label: '少少', value: 1 }, { label: '沒有', value: 0 }
+                ];
+
+                options.forEach(opt => {
+                    const optionWrapper = document.createElement('div');
+                    optionWrapper.className = 'flex items-center';
+                    
+                    const radioInput = document.createElement('input');
+                    radioInput.type = 'radio';
+                    radioInput.id = `q${q_item.originalIndex}_${opt.value}`;
+                    radioInput.name = `question_${q_item.originalIndex}`;
+                    radioInput.value = opt.value;
+                    radioInput.dataset.originalIndex = q_item.originalIndex;
+                    radioInput.className = 'custom-radio h-5 w-5 rounded-full border-2 border-gray-300 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 cursor-pointer';
+                    radioInput.addEventListener('change', handleAnswer);
+
+                    const label = document.createElement('label');
+                    label.htmlFor = `q${q_item.originalIndex}_${opt.value}`;
+                    label.textContent = opt.label;
+                    label.className = 'ml-2 text-gray-600 cursor-pointer';
+
+                    optionWrapper.appendChild(radioInput);
+                    optionWrapper.appendChild(label);
+                    optionsContainer.appendChild(optionWrapper);
+                });
+
+                questionBlock.appendChild(questionText);
+                questionBlock.appendChild(optionsContainer);
+                questionnaireContainer.appendChild(questionBlock);
+            }
+
+            function handleAnswer(event) {
+                const score = parseInt(event.target.value, 10);
+                const originalIndex = parseInt(event.target.dataset.originalIndex, 10);
+                const categoryIndex = originalIndex % gifts.length;
+                scores[categoryIndex] += score;
+
+                updateProgress();
+
+                const questionBlock = questionnaireContainer.querySelector('.question-enter');
+                if(questionBlock) {
+                    questionBlock.classList.remove('question-enter');
+                    questionBlock.classList.add('question-exit');
                 }
 
-                displayResults(scores);
-            });
+                setTimeout(() => {
+                    currentQuestionIndex++;
+                    renderCurrentQuestion();
+                }, 350);
+            }
+            
+            function updateProgress() {
+                const answeredCount = currentQuestionIndex + 1;
+                const totalQuestions = questions.length;
+                const percentage = Math.round((answeredCount / totalQuestions) * 100);
+                
+                progressBar.style.width = `${percentage}%`;
+                progressText.textContent = `${percentage}%`;
+                questionCounter.textContent = `問題 ${answeredCount} / ${totalQuestions}`;
+            }
 
-            // 顯示結果
-            function displayResults(scores) {
+            function displayResults() {
                 const resultsData = gifts.map((gift, index) => ({
                     gift: gift,
-                    category: String.fromCharCode(65 + index), // A, B, C...
+                    category: String.fromCharCode(65 + index),
                     score: scores[index]
                 }));
 
                 resultsData.sort((a, b) => b.score - a.score);
+                
+                renderChart(resultsData);
+                renderResultsList(resultsData);
+
+                questionnaireContainer.classList.add('hidden');
+                progressContainer.classList.add('hidden');
+                header.classList.add('hidden');
+                resultsContainer.classList.remove('hidden');
+                window.scrollTo(0, 0);
+            }
+
+            function renderResultsList(resultsData) {
                 resultsList.innerHTML = '';
+
+                const primaryGiftsContainer = document.createElement('div');
+                const primaryTitle = document.createElement('h3');
+                primaryTitle.className = 'text-xl font-semibold text-gray-800 mb-3 mt-4 border-b-2 border-blue-500 pb-2';
+                primaryTitle.textContent = '主要恩賜 (首3項)';
+                primaryGiftsContainer.appendChild(primaryTitle);
+
+                const secondaryGiftsContainer = document.createElement('div');
+                const secondaryTitle = document.createElement('h3');
+                secondaryTitle.className = 'text-xl font-semibold text-gray-800 mb-3 mt-4 border-b-2 border-yellow-500 pb-2';
+                secondaryTitle.textContent = '次要恩賜 (第4-6項)';
+                secondaryGiftsContainer.appendChild(secondaryTitle);
+
+                const otherGiftsContainer = document.createElement('div');
+                const otherTitle = document.createElement('h3');
+                otherTitle.className = 'text-xl font-semibold text-gray-800 mb-3 mt-4 border-b-2 border-gray-300 pb-2';
+                otherTitle.textContent = '其他恩賜';
+                otherGiftsContainer.appendChild(otherTitle);
 
                 resultsData.forEach((result, index) => {
                     const resultItem = document.createElement('div');
-                    resultItem.className = 'p-4 rounded-lg flex items-center justify-between transition duration-300';
+                    resultItem.className = 'p-3 rounded-lg flex items-center justify-between transition duration-300';
                     
-                    if (index < 3) {
-                        resultItem.classList.add('bg-blue-100', 'border-l-4', 'border-blue-500');
-                    } else if (index < 7) {
-                        resultItem.classList.add('bg-gray-100');
-                    } else {
-                        resultItem.classList.add('bg-gray-50');
-                    }
-
                     const rankSpan = document.createElement('span');
-                    rankSpan.className = 'text-lg font-bold text-blue-600 w-8';
+                    rankSpan.className = 'text-md font-bold w-10 text-center';
                     rankSpan.textContent = `#${index + 1}`;
 
                     const giftInfo = document.createElement('div');
                     giftInfo.className = 'flex-grow ml-4';
                     
                     const giftName = document.createElement('p');
-                    giftName.className = 'text-lg font-semibold text-gray-800';
+                    giftName.className = 'text-md font-semibold text-gray-800';
                     giftName.textContent = `${result.gift} (${result.category})`;
-
-                    const scoreBarContainer = document.createElement('div');
-                    scoreBarContainer.className = 'w-full bg-gray-200 rounded-full h-2.5 mt-1';
-                    const scoreBarFill = document.createElement('div');
-                    const maxScore = 15; // 5 questions * 3 points
-                    const scorePercentage = (result.score / maxScore) * 100;
-                    scoreBarFill.className = 'bg-blue-500 h-2.5 rounded-full';
-                    scoreBarFill.style.width = `${scorePercentage}%`;
-                    scoreBarContainer.appendChild(scoreBarFill);
                     
                     giftInfo.appendChild(giftName);
-                    giftInfo.appendChild(scoreBarContainer);
                     
                     const scoreSpan = document.createElement('span');
-                    scoreSpan.className = 'text-xl font-bold text-gray-700 ml-4';
+                    scoreSpan.className = 'text-lg font-bold text-gray-700 ml-4';
                     scoreSpan.textContent = result.score;
                     
                     resultItem.appendChild(rankSpan);
                     resultItem.appendChild(giftInfo);
                     resultItem.appendChild(scoreSpan);
                     
-                    resultsList.appendChild(resultItem);
+                    if (index < 3) {
+                        resultItem.classList.add('bg-blue-100', 'border-l-4', 'border-blue-500');
+                        primaryGiftsContainer.appendChild(resultItem);
+                    } else if (index < 6) {
+                        resultItem.classList.add('bg-yellow-100', 'border-l-4', 'border-yellow-500');
+                        secondaryGiftsContainer.appendChild(resultItem);
+                    } else {
+                        resultItem.classList.add('bg-gray-50');
+                        otherGiftsContainer.appendChild(resultItem);
+                    }
                 });
 
-                document.getElementById('questionnaire-container').classList.add('hidden');
-                document.getElementById('actions-container').classList.add('hidden');
-                document.getElementById('progress-container').classList.add('hidden');
-                document.getElementById('header').classList.add('hidden');
-                resultsContainer.classList.remove('hidden');
-                window.scrollTo(0, 0);
+                resultsList.appendChild(primaryGiftsContainer);
+                resultsList.appendChild(secondaryGiftsContainer);
+                resultsList.appendChild(otherGiftsContainer);
             }
 
-            // 重新開始
+            function renderChart(resultsData) {
+                const ctx = document.getElementById('resultsChart').getContext('2d');
+                if (resultsChart) {
+                    resultsChart.destroy();
+                }
+                
+                const labels = resultsData.map(r => r.gift);
+                const scores = resultsData.map(r => r.score);
+
+                resultsChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '恩賜分數',
+                            data: scores,
+                            backgroundColor: [
+                                'rgba(54, 162, 235, 0.6)', 'rgba(255, 99, 132, 0.6)', 'rgba(75, 192, 192, 0.6)',
+                                'rgba(255, 206, 86, 0.6)', 'rgba(153, 102, 255, 0.6)', 'rgba(255, 159, 64, 0.6)',
+                                'rgba(199, 199, 199, 0.6)', 'rgba(83, 102, 255, 0.6)', 'rgba(40, 159, 64, 0.6)',
+                                'rgba(210, 99, 132, 0.6)', 'rgba(54, 162, 135, 0.6)', 'rgba(25, 206, 86, 0.6)',
+                                'rgba(153, 102, 155, 0.6)', 'rgba(255, 159, 164, 0.6)', 'rgba(54, 62, 235, 0.6)',
+                                'rgba(255, 99, 32, 0.6)', 'rgba(75, 192, 92, 0.6)', 'rgba(255, 206, 186, 0.6)',
+                                'rgba(153, 2, 255, 0.6)', 'rgba(255, 59, 64, 0.6)', 'rgba(54, 162, 235, 0.6)',
+                                'rgba(255, 99, 132, 0.6)', 'rgba(75, 192, 192, 0.6)', 'rgba(255, 206, 86, 0.6)',
+                                'rgba(153, 102, 255, 0.6)'
+                            ],
+                            borderColor: [
+                                'rgba(54, 162, 235, 1)', 'rgba(255, 99, 132, 1)', 'rgba(75, 192, 192, 1)',
+                                'rgba(255, 206, 86, 1)', 'rgba(153, 102, 255, 1)', 'rgba(255, 159, 64, 1)',
+                                'rgba(199, 199, 199, 1)', 'rgba(83, 102, 255, 1)', 'rgba(40, 159, 64, 1)',
+                                'rgba(210, 99, 132, 1)', 'rgba(54, 162, 135, 1)', 'rgba(25, 206, 86, 1)',
+                                'rgba(153, 102, 155, 1)', 'rgba(255, 159, 164, 1)', 'rgba(54, 62, 235, 1)',
+                                'rgba(255, 99, 32, 1)', 'rgba(75, 192, 92, 1)', 'rgba(255, 206, 186, 1)',
+                                'rgba(153, 2, 255, 1)', 'rgba(255, 59, 64, 1)', 'rgba(54, 162, 235, 1)',
+                                'rgba(255, 99, 132, 1)', 'rgba(75, 192, 192, 1)', 'rgba(255, 206, 86, 1)',
+                                'rgba(153, 102, 255, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        scales: {
+                            x: { beginAtZero: true, max: 15 }
+                        },
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
+            }
+
             function startNewAssessment() {
+                // Hide results and welcome, show quiz
                 resultsContainer.classList.add('hidden');
-                document.getElementById('questionnaire-container').classList.remove('hidden');
-                document.getElementById('actions-container').classList.remove('hidden');
-                document.getElementById('progress-container').classList.remove('hidden');
-                document.getElementById('header').classList.remove('hidden');
+                welcomeContainer.classList.add('hidden');
+                header.classList.remove('hidden');
+                progressContainer.classList.remove('hidden');
+                questionnaireContainer.classList.remove('hidden');
+                
+                if (resultsChart) {
+                    resultsChart.destroy();
+                }
+
+                scores = Array(gifts.length).fill(0);
+                currentQuestionIndex = 0;
                 
                 prepareAndShuffleQuestions();
-                renderQuestions();
+                renderCurrentQuestion();
                 updateProgress();
+                questionCounter.textContent = `問題 1 / ${questions.length}`;
                 window.scrollTo(0, 0);
             }
 
+            startBtn.addEventListener('click', startNewAssessment);
             restartBtn.addEventListener('click', startNewAssessment);
-
-            // 自訂提示框函數
-            function showCustomAlert(message) {
-                const oldAlert = document.getElementById('custom-alert');
-                if (oldAlert) oldAlert.remove();
-
-                const alertBox = document.createElement('div');
-                alertBox.id = 'custom-alert';
-                alertBox.className = 'fixed top-5 left-1/2 -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg z-50 transition-opacity duration-300';
-                alertBox.textContent = message;
-                
-                document.body.appendChild(alertBox);
-
-                setTimeout(() => {
-                    alertBox.style.opacity = '0';
-                    setTimeout(() => alertBox.remove(), 300);
-                }, 3000);
-            }
-
-            // 初始化
-            startNewAssessment();
         });
     </script>
 </body>
